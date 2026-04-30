@@ -27,7 +27,7 @@ cd daily-ai-digest
 
 1. Go to [github.com/new](https://github.com/new)
 2. Name it `daily-ai-digest`
-3. Set visibility to **Private** (recommended — your email addresses will be in config.json)
+3. Set visibility to **Private** (recommended)
 4. Do not initialise with README, .gitignore, or licence
 5. Click **Create repository**
 
@@ -71,26 +71,23 @@ pip install -r requirements.txt
 
 ---
 
-## Step 3 — Run the Setup Wizard
+## Step 3 — Run the Setup Wizard to Identify Your Values
 
 ```bash
 python setup.py
 ```
 
-The wizard will ask for:
-1. **Sender Gmail address** — the Gmail account that sends the digest (must have App Password configured in Step 4)
-2. **Recipient email address** — where the digest is delivered (can be the same Gmail or any other address)
-3. **Your role** — select from the numbered menu (1–15)
+The wizard asks for your sender Gmail address, recipient email address, and role (chosen from a numbered menu of 15 options). It writes these to `config.json` locally so you can see the exact values — **this file is for your reference only**.
 
-After completing the wizard, `config.json` is created in the project root. Example output:
+`config.json` is blocked from being committed by `.gitignore`. Do not add or force-commit it. The workflow generates `config.json` at runtime from GitHub Secrets — no one, including the repo owner, should ever commit it.
 
-```json
-{
-  "role": "Software Developer",
-  "sender_email": "mydigest@gmail.com",
-  "recipient_email": "me@company.com"
-}
-```
+Note the three values the wizard shows you — you will enter them as GitHub Secrets in Step 5:
+
+| Wizard output field | GitHub Secret name |
+|---|---|
+| Role | `DIGEST_ROLE` |
+| Sender Gmail address | `GMAIL_USER` |
+| Recipient email address | `DIGEST_RECIPIENT` |
 
 ---
 
@@ -110,42 +107,48 @@ Gmail requires an **App Password** for SMTP access when 2-Step Verification is e
 
 ## Step 5 — Add GitHub Secrets
 
-Secrets store sensitive values (Gmail credentials) without committing them to the repository.
+This step applies to **everyone** — both the original repo owner and anyone who forks the repo. Each person adds secrets to their own repository or fork. All configuration lives in secrets; nothing personal is ever committed to the code.
 
-1. Go to your repository on GitHub
+1. Go to your repository (or fork) on GitHub
 2. Click **Settings** (top navigation bar, not account settings)
 3. In the left sidebar, click **Secrets and variables** → **Actions**
-4. Click **New repository secret** and add the first secret:
+4. Add each of the following four secrets using **New repository secret**:
 
    ```
    Name:  GMAIL_USER
-   Value: mydigest@gmail.com   ← your sender Gmail address
+   Value: mydigest@gmail.com        ← the Gmail account that sends the digest
    ```
-
-5. Click **Add secret**, then **New repository secret** again:
 
    ```
    Name:  GMAIL_APP_PASSWORD
-   Value: abcdefghijklmnop     ← the 16-character App Password (no spaces)
+   Value: abcdefghijklmnop          ← the 16-character App Password (no spaces)
    ```
 
-6. Click **Add secret**
+   ```
+   Name:  DIGEST_ROLE
+   Value: Software Developer        ← your role, exactly as shown in setup.py
+   ```
 
-You should now see two secrets listed: `GMAIL_APP_PASSWORD` and `GMAIL_USER`.
+   ```
+   Name:  DIGEST_RECIPIENT
+   Value: me@company.com            ← where the digest is delivered
+   ```
+
+5. After adding all four, your secrets list should show: `DIGEST_RECIPIENT`, `DIGEST_ROLE`, `GMAIL_APP_PASSWORD`, `GMAIL_USER`.
 
 The `GITHUB_TOKEN` secret is automatically provided by GitHub Actions — you do not need to add it.
 
 ---
 
-## Step 6 — Commit config.json and Push
+## Step 6 — Confirm config.json Is Not Tracked
+
+`config.json` is listed in `.gitignore` and must never be committed. The workflow generates it at runtime from your GitHub Secrets. Verify it is excluded:
 
 ```bash
-git add config.json
-git commit -m "Add digest configuration"
-git push
+git status
 ```
 
-`config.json` contains no credentials (those are in GitHub Secrets), so it is safe to commit.
+`config.json` should not appear in the output. If it does, your `.gitignore` is missing or not being applied — do not stage or commit it.
 
 ---
 
@@ -286,7 +289,10 @@ No `feedparser` installation is needed.
 
 ### config.json not found
 
-Run `python setup.py` locally to regenerate it, then commit and push.
+`config.json` is generated at runtime by the **Generate config.json** step in the workflow, using the `DIGEST_ROLE`, `GMAIL_USER`, and `DIGEST_RECIPIENT` secrets. It is never committed to the repository.
+
+- **In GitHub Actions**: if this error appears, confirm all four secrets are set correctly in **Settings → Secrets and variables → Actions**
+- **Locally**: run `python setup.py` to create `config.json` for local testing — the file is gitignored and will not be committed
 
 ### 401 Unauthorized in classify step — "The models permission is required"
 

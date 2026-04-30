@@ -17,6 +17,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      DIGEST_ROLE: ${{ secrets.DIGEST_ROLE }}
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
 
     steps:
       - name: Checkout repository
@@ -29,6 +31,20 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Generate config.json
+        run: |
+          python -c "
+          import json, os
+          config = {
+              'role': os.environ['DIGEST_ROLE'],
+              'sender_email': os.environ['GMAIL_USER'],
+              'recipient_email': os.environ['DIGEST_RECIPIENT']
+          }
+          with open('config.json', 'w') as f:
+              json.dump(config, f)
+          print('config.json created')
+          "
 
       - name: Fetch news
         run: python src/fetch_news.py
