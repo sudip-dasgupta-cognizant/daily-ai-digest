@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(python -c ' *)",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('src/fetch_news.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('src/fetch_news.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
+      "WebFetch(domain:www.deeplearning.ai)",
+      "WebFetch(domain:www.oreilly.com)",
+      "WebFetch(domain:feeds.feedburner.com)",
+      "WebFetch(domain:oreillyradar.substack.com)",
+      "WebFetch(domain:deeplearning.ai)"
     ]
   }
 }
