@@ -1,0 +1,39 @@
+name: Daily AI Digest
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 2:00 AM UTC = 7:30 AM IST
+  workflow_dispatch:        # manual trigger for testing
+
+permissions:
+  contents: read
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch news
+        run: python src/fetch_news.py
+
+      - name: Classify news
+        run: python src/classify.py
+
+      - name: Send email digest
+        run: python src/send_email.py
