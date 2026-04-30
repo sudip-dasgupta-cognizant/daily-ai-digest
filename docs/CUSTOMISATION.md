@@ -178,9 +178,4 @@ python src/classify.py         # produces classified_items.json
 python src/send_email.py       # sends the email
 ```
 
-Intermediate JSON files (`news_items.json`, `classified_items.json`) are created in the repo root. Add them to `.gitignore` to avoid accidental commits:
-
-```
-news_items.json
-classified_items.json
-```
+`news_items.json` and `classified_items.json` are runtime-generated files created in the repo root during the pipeline run. They exist only for the duration of a GitHub Actions run (each step writes the file that the next step reads) and are excluded from the repository via `.gitignore` — there is no need to commit them.
