@@ -288,6 +288,26 @@ No `feedparser` installation is needed.
 
 Run `python setup.py` locally to regenerate it, then commit and push.
 
+### 401 Unauthorized in classify step — "The models permission is required"
+
+**Cause**: The GitHub Actions workflow needs explicit permission to call the GitHub Models API.
+
+**Fix**: Ensure `.github/workflows/daily_digest.yml` contains this top-level `permissions` block:
+
+```yaml
+permissions:
+  contents: read
+  models: read
+```
+
+This is already included in the latest version of the repo. If you see this error, pull the latest changes and the permission will be present:
+
+```bash
+git pull origin main
+```
+
+---
+
 ### GITHUB_TOKEN has no access to GitHub Models
 
-Ensure the repository is owned by a GitHub account with access to GitHub Models (available to most GitHub users as of 2024). If you see `AuthenticationError`, confirm the workflow's `permissions: contents: read` block is present in the workflow file.
+Ensure the repository is owned by a GitHub account with access to GitHub Models (available to most GitHub users as of 2024). If you see `AuthenticationError`, confirm the workflow's `permissions` block includes both `contents: read` and `models: read`.
