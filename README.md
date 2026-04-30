@@ -35,43 +35,32 @@ Token:    GITHUB_TOKEN         → auto-provided by GitHub Actions
 
 ## Quickstart
 
-**1. Clone and install**
+> No terminal or local installation required. Everything runs on GitHub's servers.
 
-```bash
-git clone https://github.com/YOUR_USERNAME/daily-ai-digest.git
-cd daily-ai-digest
-pip install -r requirements.txt
-```
+**1. Get a Gmail App Password**
 
-**2. Run the setup wizard**
+Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create an App Password named `AI Digest`, and copy the 16-character password shown.
 
-```bash
-python setup.py
-```
+**2. Fork this repository**
 
-Select your role, enter email addresses. `config.json` is created locally.
+Click **Fork** at the top of this page. This creates your own copy under your GitHub account where your secrets and scheduled workflow run independently.
 
-**3. Add GitHub Secrets**
+**3. Add four GitHub Secrets**
 
-In your repo: **Settings → Secrets and variables → Actions → New repository secret**
+In your forked repo: **Settings → Secrets and variables → Actions → New repository secret**
 
 | Secret name | Value |
 |---|---|
 | `GMAIL_USER` | Your Gmail address |
-| `GMAIL_APP_PASSWORD` | 16-char Gmail App Password (see [docs/SETUP.md](docs/SETUP.md)) |
+| `GMAIL_APP_PASSWORD` | The 16-character App Password from Step 1 |
+| `DIGEST_ROLE` | Your role — e.g. `Architect`, `Software Developer`, `Delivery Manager` (see full list below) |
+| `DIGEST_RECIPIENT` | Your work email address |
 
-**4. Commit and push**
+**4. Run your first digest**
 
-```bash
-git add config.json
-git commit -m "Add digest configuration"
-git push
-```
+**Actions → Daily AI Digest → Run workflow → Run workflow**
 
-**5. Trigger or wait**
-
-The digest runs automatically at 7:30 AM IST. For an immediate test:
-**Actions → Daily AI Digest → Run workflow**
+Wait 5 minutes and check your inbox. The digest will also run automatically every morning at 7:30 AM IST.
 
 ---
 
