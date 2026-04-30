@@ -255,6 +255,23 @@ No `feedparser` installation is needed.
 - The GitHub Models API has per-token rate limits. Increase `RATE_LIMIT_DELAY` in `src/classify.py` (default: 0.6 seconds)
 - Reduce `MAX_ITEMS` in `src/fetch_news.py` to classify fewer articles per run (default: 40)
 
+### Email arrives but says "No relevant AI news found today"
+
+**Cause**: RSS feeds returned 0 items after filtering. This can happen if all feeds are unreachable or if no items were published within the fetch window.
+
+**Fix**: Open the GitHub Actions run log and look for the per-feed lines emitted by `fetch_news.py`:
+
+```
+[fetch]   OK    "VentureBeat": 3/18 items within 48h window
+[fetch]   FAIL  https://example.com/feed  (HTTP error or XML parse error)
+```
+
+- Feeds showing `FAIL` are unreachable — check whether the URL is still valid in `src/sources.py`
+- Feeds showing `0/N items` fetched successfully but all items fell outside the time window — this is normal for infrequently publishing sources
+- The system automatically retries with a 72-hour window if the primary 48-hour pass returns zero items; if the fallback also returns zero, the email is sent with the empty-state message
+
+---
+
 ### No items fetched (news_items.json is empty)
 
 - RSS feeds occasionally go down or change their URLs. Check the Actions log for `[fetch] Error parsing` lines

@@ -33,10 +33,12 @@ External services:
 ```
 RSS feeds (9 sources)
         │
-        ▼ feedparser.parse()
+        ▼ requests.get() + xml.etree.ElementTree (browser User-Agent)
 Raw feed entries (unlimited)
         │
-        ▼ filter: published within last 24 hours
+        ▼ filter: published within last 48 hours
+        │  (if 0 items pass, automatically retry with 72-hour window)
+        │  per-feed log: OK "Source Name": N/M items within 48h window
 Dated entries
         │
         ▼ deduplicate: SequenceMatcher ratio ≥ 0.75 on titles
@@ -62,6 +64,18 @@ classified_items.json  [title, url, source, category, reason, summary]
                 ▼ smtplib SMTP(host, 587) + STARTTLS + login
         Gmail → recipient inbox
 ```
+
+## RSS Fetching
+
+`fetch_news.py` uses `requests` for HTTP and Python's built-in `xml.etree.ElementTree` for parsing — no third-party feed library is required. Both RSS 2.0 and Atom feed formats are supported; the format is detected from the XML root element tag.
+
+A browser-like User-Agent header is sent with every request to avoid bot-blocking by news site CDNs and WAFs:
+
+```
+Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36
+```
+
+The fetch window is 48 hours (`CUTOFF_HOURS` in `fetch_news.py`) to accommodate feeds that publish infrequently. If all feeds return 0 items after filtering, the script automatically retries with a 72-hour window (`FALLBACK_HOURS`) before writing an empty result. Each feed produces a log line showing how many items passed the window filter vs. the total available, making it straightforward to diagnose which feeds are blocked or empty in the Actions log.
 
 ## GitHub Models API Integration
 

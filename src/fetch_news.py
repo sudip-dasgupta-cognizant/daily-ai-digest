@@ -15,9 +15,17 @@ from sources import RSS_FEEDS
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUTPUT_FILE = os.path.join(REPO_ROOT, "news_items.json")
-CUTOFF_HOURS = 24
+CUTOFF_HOURS = 48      # primary window
+FALLBACK_HOURS = 72    # used if primary window yields 0 items
 MAX_ITEMS = 40
 SIMILARITY_THRESHOLD = 0.75
+
+# Generic browser UA to avoid bot-blocking on news/blog feeds
+_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
 
 _NS_ATOM = "http://www.w3.org/2005/Atom"
 _NS_CONTENT = "http://purl.org/rss/1.0/modules/content/"
@@ -45,11 +53,11 @@ def _parse_date(date_str: str) -> datetime | None:
     return None
 
 
-def _is_recent(date_str: str) -> bool:
+def _is_recent(date_str: str, cutoff_hours: int) -> bool:
     dt = _parse_date(date_str)
     if dt is None:
         return True  # include items whose date cannot be parsed
-    return dt >= datetime.now(tz=timezone.utc) - timedelta(hours=CUTOFF_HOURS)
+    return dt >= datetime.now(tz=timezone.utc) - timedelta(hours=cutoff_hours)
 
 
 # ---------------------------------------------------------------------------
@@ -57,22 +65,23 @@ def _is_recent(date_str: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def _clean(text: str) -> str:
-    """Strip HTML tags and decode entities."""
     text = re.sub(r"<[^>]+>", "", text)
     return html.unescape(text).strip()
 
 
 # ---------------------------------------------------------------------------
-# Feed parsers
+# Feed parsers — return (filtered_items, total_count, source_name)
 # ---------------------------------------------------------------------------
 
-def _parse_rss(root: ET.Element, source_url: str) -> list[dict]:
+def _parse_rss(root: ET.Element, source_url: str, cutoff_hours: int) -> tuple[list[dict], int, str]:
     channel = root.find("channel")
     if channel is None:
-        return []
+        return [], 0, source_url
     source = _clean(channel.findtext("title") or source_url)
+    total = 0
     items = []
     for item in channel.findall("item"):
+        total += 1
         title = _clean(item.findtext("title") or "")
         link = (item.findtext("link") or "").strip()
         pub_date = (
@@ -80,7 +89,7 @@ def _parse_rss(root: ET.Element, source_url: str) -> list[dict]:
             or item.findtext(f"{{{_NS_DC}}}date")
             or ""
         )
-        if not title or not link or not _is_recent(pub_date):
+        if not title or not link or not _is_recent(pub_date, cutoff_hours):
             continue
         description = _clean(
             item.findtext(f"{{{_NS_CONTENT}}}encoded")
@@ -88,16 +97,17 @@ def _parse_rss(root: ET.Element, source_url: str) -> list[dict]:
             or ""
         )[:600]
         items.append({"title": title, "url": link, "description": description, "source": source})
-    return items
+    return items, total, source
 
 
-def _parse_atom(root: ET.Element, source_url: str) -> list[dict]:
+def _parse_atom(root: ET.Element, source_url: str, cutoff_hours: int) -> tuple[list[dict], int, str]:
     ns = _NS_ATOM
     source = _clean(root.findtext(f"{{{ns}}}title") or source_url)
+    total = 0
     items = []
     for entry in root.findall(f"{{{ns}}}entry"):
+        total += 1
         title = _clean(entry.findtext(f"{{{ns}}}title") or "")
-        # Prefer rel="alternate", fall back to first link with an href
         link = ""
         for link_el in entry.findall(f"{{{ns}}}link"):
             href = link_el.get("href", "")
@@ -113,7 +123,7 @@ def _parse_atom(root: ET.Element, source_url: str) -> list[dict]:
             or entry.findtext(f"{{{ns}}}updated")
             or ""
         )
-        if not title or not link or not _is_recent(pub_date):
+        if not title or not link or not _is_recent(pub_date, cutoff_hours):
             continue
         description = _clean(
             entry.findtext(f"{{{ns}}}summary")
@@ -121,36 +131,43 @@ def _parse_atom(root: ET.Element, source_url: str) -> list[dict]:
             or ""
         )[:600]
         items.append({"title": title, "url": link, "description": description, "source": source})
-    return items
+    return items, total, source
 
 
 # ---------------------------------------------------------------------------
 # Fetch
 # ---------------------------------------------------------------------------
 
-def _fetch_feed(url: str) -> list[dict]:
+def _fetch_feed(url: str, cutoff_hours: int) -> list[dict]:
     try:
-        resp = requests.get(url, timeout=15, headers={"User-Agent": "daily-ai-digest/1.0"})
+        resp = requests.get(
+            url,
+            timeout=15,
+            headers={"User-Agent": _USER_AGENT},
+        )
         resp.raise_for_status()
         root = ET.fromstring(resp.content)
     except requests.RequestException as e:
-        print(f"[fetch] HTTP error {url}: {e}", file=sys.stderr)
+        print(f"[fetch]   FAIL  {url}", file=sys.stderr)
+        print(f"          {e}", file=sys.stderr)
         return []
     except ET.ParseError as e:
-        print(f"[fetch] XML error {url}: {e}", file=sys.stderr)
+        print(f"[fetch]   FAIL  {url} (XML parse error: {e})", file=sys.stderr)
         return []
 
-    tag = root.tag
-    if tag == f"{{{_NS_ATOM}}}feed":
-        return _parse_atom(root, url)
-    # RSS 2.0 (root tag "rss") or any unrecognised root that has a channel child
-    return _parse_rss(root, url)
+    if root.tag == f"{{{_NS_ATOM}}}feed":
+        items, total, source = _parse_atom(root, url, cutoff_hours)
+    else:
+        items, total, source = _parse_rss(root, url, cutoff_hours)
+
+    print(f"[fetch]   OK    {source!r}: {len(items)}/{total} items within {cutoff_hours}h window")
+    return items
 
 
-def fetch_all_feeds() -> list[dict]:
+def fetch_all_feeds(cutoff_hours: int) -> list[dict]:
     items = []
     for url in RSS_FEEDS:
-        items.extend(_fetch_feed(url))
+        items.extend(_fetch_feed(url, cutoff_hours))
     return items
 
 
@@ -177,9 +194,21 @@ def deduplicate(items: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def main():
-    print("[fetch] Fetching RSS feeds...")
-    raw = fetch_all_feeds()
-    print(f"[fetch] Raw items: {len(raw)}")
+    print(f"[fetch] Fetching {len(RSS_FEEDS)} feeds (primary window: {CUTOFF_HOURS}h)...")
+    raw = fetch_all_feeds(CUTOFF_HOURS)
+
+    if not raw:
+        print(
+            f"[fetch] 0 items with {CUTOFF_HOURS}h window — "
+            f"retrying with {FALLBACK_HOURS}h fallback window..."
+        )
+        raw = fetch_all_feeds(FALLBACK_HOURS)
+        if not raw:
+            print("[fetch] WARNING: 0 items after fallback. Writing empty digest.", file=sys.stderr)
+        else:
+            print(f"[fetch] Fallback succeeded: {len(raw)} raw items with {FALLBACK_HOURS}h window")
+
+    print(f"[fetch] Total raw items: {len(raw)}")
 
     deduped = deduplicate(raw)
     print(f"[fetch] After deduplication: {len(deduped)}")

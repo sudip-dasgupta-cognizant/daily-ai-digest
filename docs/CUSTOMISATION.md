@@ -17,6 +17,8 @@ Any valid RSS or Atom feed URL works. After editing, commit and push the change 
 
 **Volume note**: Each feed can return many items, but `fetch_news.py` caps the total at 40 items after deduplication. If you add many feeds, some lower-priority sources may get crowded out. Adjust `MAX_ITEMS` in `fetch_news.py` if needed.
 
+**Fetch window**: By default, only items published within the last 48 hours are included. If a feed publishes infrequently and its items are being filtered out, increase `CUTOFF_HOURS` in `fetch_news.py`. The `FALLBACK_HOURS` constant (default: 72) controls the retry window used when the primary pass returns zero items — raise it if you still see empty digests after increasing `CUTOFF_HOURS`.
+
 ---
 
 ## Changing the Cron Schedule
