@@ -1,0 +1,78 @@
+name: Test Narrative Voice
+
+on:
+  workflow_dispatch:  # manual trigger only
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create test classified_items.json
+        run: |
+          cat > classified_items.json << 'EOF'
+          [
+            {
+              "title": "DeepSeek releases R3 — open-source reasoning model matching GPT-5 at 1/20th the cost",
+              "url": "https://example.com/deepseek-r3",
+              "source": "The Verge",
+              "category": "deep-read",
+              "summary": "Chinese AI lab DeepSeek released R3, a fully open-weights reasoning model that matches GPT-5 on math and coding benchmarks while costing about $0.40 per million tokens to run. Training reportedly cost under $8 million — roughly 5% of comparable Western efforts.",
+              "reason": "Resets what 'paying for AI' looks like — if anyone can run a top model on rented GPUs for cents per query, the case for $20/month consumer AI subscriptions starts to wobble. Watch how OpenAI and Anthropic respond on pricing within 60 days."
+            },
+            {
+              "title": "BLS data: AI-exposed roles saw 9% wage growth slowdown over 18 months",
+              "url": "https://example.com/bls-ai-wages",
+              "source": "Bureau of Labor Statistics",
+              "category": "deep-read",
+              "summary": "Bureau of Labor Statistics analysis found that roles classified as AI-exposed (data entry, junior analyst, paralegal, copy editing) saw wage growth slow by 9 percentage points relative to non-exposed roles since early 2024. Unemployment rates in those roles barely moved.",
+              "reason": "First large dataset showing AI mostly compresses pay rather than eliminating jobs outright — a much harder political story than 'robots took my job', and one few politicians are ready for. Junior knowledge workers feel this first; senior ones absorb it later."
+            },
+            {
+              "title": "Anthropic ships Claude Code Skills for packaging agent capabilities",
+              "url": "https://example.com/claude-skills",
+              "source": "Anthropic",
+              "category": "deep-read",
+              "summary": "Anthropic released Claude Code Skills — folders containing a SKILL.md description, optional scripts, and reference files that the model loads on demand. The model decides at runtime which skill to invoke based on the task, instead of always loading every capability upfront.",
+              "reason": "Pushes 'context engineering' from buzzword to packaged primitive — teams can ship reusable agent behaviour the same way they ship libraries. Watch whether OpenAI and Google follow with their own packaging spec."
+            },
+            {
+              "title": "EU AI Act enforcement begins: first fines against generative AI vendors",
+              "url": "https://example.com/eu-ai-act-fines",
+              "source": "Reuters",
+              "category": "skim"
+            },
+            {
+              "title": "Google DeepMind paper claims new SOTA on protein folding",
+              "url": "https://example.com/deepmind-protein",
+              "source": "Nature",
+              "category": "skim"
+            }
+          ]
+          EOF
+
+      - name: Run write_narrative.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python src/write_narrative.py
+
+      - name: Print narrative preview
+        run: |
+          echo "=== TITLE & SUBTITLE ==="
+          python -c "import json; d=json.load(open('narrative.json')); print('Title:   ', d['title']); print('Subtitle:', d['subtitle']); print(); print('=== BODY MARKDOWN ==='); print(d['body_markdown'])"
+
+      - name: Upload narrative as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrative-output
+          path: |
+            narrative.json
+            narrative_for_tts.txt
